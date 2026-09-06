@@ -316,7 +316,6 @@
 <div id="published-view"><iframe id="published-frame" sandbox="allow-scripts allow-forms allow-popups allow-modals"></iframe></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 /* ============ Fatal-error safety net ============ */
@@ -325,7 +324,11 @@
 function showFatal(msg){
   const el = document.getElementById('fatal-error');
   const txt = document.getElementById('fatal-error-text');
-  if(el && txt){ txt.textContent = msg; el.style.display='block'; }
+  let full = msg;
+  if(/permission[_ ]denied/i.test(msg)){
+    full += '\n\nЦе означає, що правила Realtime Database забороняють читання/запис. Постав у Firebase Console → Realtime Database → Rules значення ".read": true, ".write": true (див. README).';
+  }
+  if(el && txt){ txt.textContent = full; el.style.display='block'; }
 }
 window.addEventListener('error', e=>{
   showFatal((e.message||'Невідома помилка') + (e.filename ? ' — ' + e.filename + ':' + e.lineno : ''));
@@ -345,20 +348,20 @@ const firebaseConfig = {
   appId: "1:847429725787:web:042d334ce6e7f76305597e"
 };
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
 const db = firebase.database();
 
-let uid = null;
-let authReady = new Promise(resolve=>{
-  auth.onAuthStateChanged(user=>{
-    if(user){ uid = user.uid; resolve(uid); }
-    else{ auth.signInAnonymously().catch(err=>{
-      console.error(err);
-      document.getElementById('main').innerHTML =
-        '<div class="empty">Не вдалось увійти анонімно. Перевір, що Anonymous Auth увімкнено у Firebase Console.</div>';
-    }); }
-  });
-});
+/* Локальний ідентифікатор користувача — без будь-якої авторизації.
+   Зберігається в localStorage цього браузера, тому "Мої роботи"
+   прив'язані до пристрою/браузера, а не до акаунту. */
+function getLocalUid(){
+  let id = localStorage.getItem('sitecreate-uid');
+  if(!id){
+    id = 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('sitecreate-uid', id);
+  }
+  return id;
+}
+const uid = getLocalUid();
 
 /* ============ Helpers ============ */
 function slugify(input){
@@ -455,6 +458,12 @@ let activeTab = 'browse';
 tabsEl.addEventListener('click', e=>{
   const btn = e.target.closest('button[data-tab]');
   if(!btn) return;
+  if(btn.dataset.tab === 'create'){
+    // "Створити сайт" — це дія (відкрити вікно створення), а не окремий
+    // вид, тому активна вкладка зверху не змінюється.
+    openCreateModal();
+    return;
+  }
   setTab(btn.dataset.tab);
 });
 
@@ -464,7 +473,6 @@ function setTab(tab){
   fab.classList.toggle('visually-hidden', tab!=='browse');
   if(tab==='browse') renderBrowse();
   else if(tab==='mine') renderMine();
-  else if(tab==='create') openCreateModal();
 }
 
 fab.addEventListener('click', openAddToCommunityModal);
@@ -500,7 +508,6 @@ async function renderBrowse(){
 }
 
 async function openAddToCommunityModal(){
-  await authReady;
   const snap = await db.ref('users/'+uid+'/projects').once('value');
   const projects = [];
   snap.forEach(child=>{const v=child.val(); if(v.slug) projects.push({id:child.key, ...v});});
@@ -545,7 +552,6 @@ async function renderMine(){
     </div>
     <div class="grid" id="mine-grid"><div class="empty">Завантаження…</div></div>`;
   document.getElementById('mine-create').addEventListener('click', openCreateModal);
-  await authReady;
   const grid = document.getElementById('mine-grid');
   try{
     const snap = await db.ref('users/'+uid+'/projects').orderByChild('updatedAt').once('value');
@@ -595,7 +601,6 @@ function confirmDelete(id){
 
 /* ---- Створити сайт (modal) ---- */
 async function openCreateModal(){
-  await authReady;
   showModal(`
     <h2>Створити сайт</h2>
     <p class="hint">Дай проєкту назву — її можна змінити пізніше.</p>

@@ -12,7 +12,24 @@
   var repo = parts.shift() || '';
   var slug = parts.join('/');
   var target = '/' + repo + '/' + (slug ? ('?p=' + encodeURIComponent(slug)) : '');
-  location.replace(target + location.hash);
+
+  // Запобіжник від нескінченного редиректу: якщо ми вже намагались
+  // перенаправити САМЕ з цієї адреси і знову потрапили на 404 —
+  // значить структура репозиторію інша, ніж очікувалось. Показуємо
+  // повідомлення замість вічного "миготіння" білим екраном.
+  var lastTry = sessionStorage.getItem('sc-redirect-from');
+  if (lastTry === location.pathname) {
+    sessionStorage.removeItem('sc-redirect-from');
+    document.body.innerHTML =
+      '<div style="font-family:sans-serif;max-width:420px;margin:60px auto;padding:0 20px;color:#1E2321;">' +
+      '<h1 style="font-size:20px;">Сторінку не знайдено</h1>' +
+      '<p style="color:#6B7270;">Адреса «' + location.pathname + '» не відповідає структурі сайту. ' +
+      'Перевір, що репозиторій на GitHub Pages називається так само, як у посиланні, і що index.html лежить у корені.</p>' +
+      '<p><a href="/' + repo + '/" style="color:#256D5A;">На головну SiteCreate</a></p></div>';
+  } else {
+    sessionStorage.setItem('sc-redirect-from', location.pathname);
+    location.replace(target + location.hash);
+  }
 </script>
 </head>
 <body>
