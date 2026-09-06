@@ -2,20 +2,793 @@
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
-<title>Перенаправлення…</title>
-<script>
-  // GitHub Pages не вміє віддавати "красиві" адреси типу /Repo/moya-nazva,
-  // бо такого файлу фізично немає. Цей файл ловить 404 і перенаправляє
-  // на index.html з параметром ?p=..., а сам index.html потім повертає
-  // адресний рядок назад у красивий вигляд через history.replaceState.
-  var parts = location.pathname.split('/').filter(Boolean);
-  var repo = parts.shift() || '';
-  var slug = parts.join('/');
-  var target = '/' + repo + '/' + (slug ? ('?p=' + encodeURIComponent(slug)) : '');
-  location.replace(target + location.hash);
-</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>SiteCreate — зроби сайт прямо в браузері</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FAFAF8;
+    --panel:#FFFFFF;
+    --ink:#1E2321;
+    --muted:#6B7270;
+    --line:#DEDDD5;
+    --accent:#256D5A;
+    --accent-ink:#0F3D31;
+    --accent-soft:#E4EFEC;
+    --danger:#B23A2E;
+    --danger-soft:#F7E9E7;
+    --sans:'Inter',system-ui,-apple-system,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+  }
+  button{font-family:var(--sans);cursor:pointer;}
+  input,textarea{font-family:var(--sans);}
+  a{color:inherit;}
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    position:sticky;top:0;z-index:20;
+    display:flex;align-items:center;justify-content:space-between;
+    gap:12px;
+    padding:14px 20px;
+    background:rgba(250,250,248,.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+  }
+  .logo{
+    display:flex;align-items:baseline;gap:2px;
+    font-weight:700;font-size:18px;letter-spacing:-0.02em;
+  }
+  .logo .dot{color:var(--accent);}
+  nav.tabs{
+    display:flex;gap:2px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:3px;
+  }
+  nav.tabs button{
+    border:none;background:transparent;
+    padding:8px 14px;border-radius:7px;
+    font-size:14px;font-weight:500;color:var(--muted);
+    transition:background .15s, color .15s;
+    white-space:nowrap;
+  }
+  nav.tabs button.active{background:var(--ink);color:#fff;}
+  nav.tabs button:not(.active):hover{background:var(--accent-soft);color:var(--accent-ink);}
+
+  .btn{
+    border:1px solid var(--line);
+    background:var(--panel);
+    padding:9px 16px;
+    border-radius:9px;
+    font-size:14px;font-weight:500;
+    color:var(--ink);
+    transition:border-color .15s, background .15s;
+  }
+  .btn:hover{border-color:var(--ink);}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.primary:hover{background:var(--accent-ink);border-color:var(--accent-ink);}
+  .btn.ghost{background:transparent;border-color:transparent;}
+  .btn.ghost:hover{background:var(--line);}
+  .btn.danger{color:var(--danger);}
+  .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .btn.small{padding:6px 11px;font-size:13px;border-radius:7px;}
+
+  /* ---------- main / home ---------- */
+  main{max-width:920px;margin:0 auto;padding:32px 20px 80px;}
+  .section-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap;}
+  .section-head h1{font-size:22px;margin:0;letter-spacing:-0.01em;}
+  .section-head p{margin:4px 0 0;color:var(--muted);font-size:14px;}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;}
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:12px;
+    padding:16px;
+    display:flex;flex-direction:column;gap:10px;
+  }
+  .card h3{margin:0;font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .card .meta{font-size:12px;color:var(--muted);font-family:var(--mono);}
+  .badge{
+    display:inline-flex;align-items:center;gap:5px;
+    font-size:11px;font-family:var(--mono);
+    padding:3px 8px;border-radius:100px;
+    width:fit-content;
+  }
+  .badge.live{background:var(--accent-soft);color:var(--accent-ink);}
+  .badge.draft{background:var(--line);color:var(--muted);}
+  .card .row{display:flex;gap:8px;margin-top:auto;flex-wrap:wrap;}
+
+  .empty{
+    border:1px dashed var(--line);border-radius:12px;
+    padding:40px 20px;text-align:center;color:var(--muted);font-size:14px;
+  }
+
+  .fab{
+    position:fixed;right:24px;bottom:24px;z-index:15;
+    width:52px;height:52px;border-radius:50%;
+    background:var(--ink);color:#fff;border:none;
+    font-size:26px;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 6px 18px rgba(0,0,0,.18);
+  }
+  .fab:hover{background:var(--accent-ink);}
+
+  /* ---------- modal ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(20,22,20,.45);
+    display:flex;align-items:center;justify-content:center;
+    z-index:100;padding:16px;
+  }
+  .modal{
+    background:var(--panel);border-radius:14px;
+    padding:22px;max-width:420px;width:100%;
+    border:1px solid var(--line);
+  }
+  .modal h2{margin:0 0 6px;font-size:17px;}
+  .modal p.hint{margin:0 0 14px;color:var(--muted);font-size:13px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;}
+  .field input, .field select{
+    width:100%;padding:10px 12px;border:1px solid var(--line);
+    border-radius:8px;font-size:14px;background:var(--bg);
+    color:var(--ink);
+  }
+  .field input:focus, .field select:focus{outline:2px solid var(--accent);outline-offset:0;border-color:var(--accent);}
+  .modal .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:6px;}
+  .modal .err{color:var(--danger);font-size:13px;margin:-6px 0 12px;}
+  .modal .success-link{
+    font-family:var(--mono);font-size:13px;background:var(--accent-soft);
+    color:var(--accent-ink);padding:10px 12px;border-radius:8px;
+    word-break:break-all;margin-bottom:12px;
+  }
+
+  /* ---------- editor ---------- */
+  .editor{
+    position:fixed;inset:0;background:var(--bg);
+    display:flex;flex-direction:column;z-index:50;
+  }
+  .editor-bar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 16px;border-bottom:1px solid var(--line);
+    background:var(--panel);gap:10px;flex-wrap:wrap;
+  }
+  .editor-bar .title{
+    font-weight:600;font-size:14px;display:flex;align-items:center;gap:8px;min-width:0;
+  }
+  .editor-bar .title span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;}
+  .editor-bar .actions{display:flex;gap:8px;align-items:center;}
+
+  .editor-body{flex:1;display:flex;min-height:0;}
+  .pane{flex:1;display:flex;flex-direction:column;min-width:0;}
+  .pane-code{border-right:1px solid var(--line);}
+  #code-input{
+    flex:1;border:none;resize:none;padding:16px;
+    font-family:var(--mono);font-size:13.5px;line-height:1.6;
+    background:#1E2321;color:#E7E7E1;
+    outline:none;tab-size:2;
+  }
+  .browser-chrome{
+    display:flex;align-items:center;gap:8px;
+    padding:9px 12px;background:var(--panel);border-bottom:1px solid var(--line);
+  }
+  .browser-chrome .dots{display:flex;gap:5px;}
+  .browser-chrome .dots span{width:8px;height:8px;border-radius:50%;background:var(--line);}
+  .browser-chrome .url{
+    flex:1;background:var(--bg);border:1px solid var(--line);border-radius:100px;
+    padding:5px 12px;font-family:var(--mono);font-size:12px;color:var(--muted);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  #preview-frame{flex:1;border:none;background:#fff;width:100%;}
+
+  .console{
+    border-top:1px solid var(--line);background:#16181A;color:#D8D8D2;
+    font-family:var(--mono);font-size:12px;
+    max-height:150px;overflow:auto;flex-shrink:0;
+  }
+  .console-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:7px 14px;background:#101213;position:sticky;top:0;
+    border-bottom:1px solid #262a2c;
+  }
+  .console-head b{font-weight:600;color:#D8D8D2;}
+  .console-head .count{color:var(--danger);}
+  .console-body{padding:6px 14px;}
+  .console-line{padding:5px 0;border-bottom:1px solid #232629;color:#F0A99A;}
+  .console-line:last-child{border-bottom:none;}
+  .console-empty{padding:10px 0;color:#6E7275;}
+
+  @media (max-width:800px){
+    .editor-body{flex-direction:column;}
+    .pane-code{border-right:none;border-bottom:1px solid var(--line);height:38%;}
+    .pane-preview{flex:1;}
+    .editor-bar .actions .label{display:none;}
+  }
+
+  /* ---------- exit confirm bar ---------- */
+  .exit-bar{
+    position:fixed;left:0;right:0;bottom:0;z-index:60;
+    background:var(--ink);color:#fff;
+    display:flex;align-items:center;justify-content:center;gap:12px;
+    padding:16px;flex-wrap:wrap;
+  }
+  .exit-bar span{font-size:14px;color:#D8D8D2;margin-right:8px;}
+  .exit-bar .btn{border-color:#3A3F3C;}
+  .exit-bar .btn.primary{background:var(--accent);border-color:var(--accent);}
+  .exit-bar .btn:not(.primary){background:transparent;color:#fff;}
+  .exit-bar .btn:not(.primary):hover{background:#3A3F3C;}
+
+  /* ---------- published full view ---------- */
+  #published-view{position:fixed;inset:0;background:#fff;z-index:200;display:none;}
+  #published-view iframe{width:100%;height:100%;border:none;}
+  #published-status{
+    position:fixed;inset:0;z-index:200;background:var(--bg);
+    display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px;
+    text-align:center;padding:20px;
+  }
+  #published-status h1{font-size:20px;margin:0;}
+  #published-status p{color:var(--muted);margin:0;max-width:340px;}
+
+  .spinner{
+    width:22px;height:22px;border-radius:50%;
+    border:3px solid var(--line);border-top-color:var(--accent);
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
+</style>
 </head>
 <body>
-  Перенаправлення…
+
+<div id="fatal-error" style="display:none;position:fixed;inset:0;z-index:999;background:#FAFAF8;color:#1E2321;font-family:sans-serif;padding:40px 20px;box-sizing:border-box;overflow:auto;">
+  <div style="max-width:480px;margin:0 auto;">
+    <h1 style="font-size:20px;">Щось пішло не так</h1>
+    <p style="color:#6B7270;">Сторінка не змогла завантажитись повністю. Найчастіша причина — Firebase ще не налаштований (Anonymous Auth або правила бази даних), або заблоковані скрипти в браузері/мережі.</p>
+    <p style="font-family:monospace;font-size:12px;background:#F4F3EE;padding:10px;border-radius:8px;word-break:break-word;" id="fatal-error-text"></p>
+  </div>
+</div>
+
+<div id="app">
+  <header class="topbar">
+    <div class="logo">SiteCreate<span class="dot">.</span></div>
+    <nav class="tabs" id="tabs">
+      <button data-tab="browse" class="active">Чужі роботи</button>
+      <button data-tab="create">Створити сайт</button>
+      <button data-tab="mine">Мої роботи</button>
+    </nav>
+  </header>
+
+  <main id="main"></main>
+  <button class="fab visually-hidden" id="fab-add" title="Додати проєкт">+</button>
+</div>
+
+<div id="editor" class="editor" style="display:none;">
+  <div class="editor-bar">
+    <div class="title">✏️ <span id="editor-project-name">Проєкт</span></div>
+    <div class="actions">
+      <button class="btn small" id="btn-play">▶ Play</button>
+      <button class="btn small primary" id="btn-publish">Готово</button>
+      <button class="btn small ghost" id="btn-exit">Вийти</button>
+    </div>
+  </div>
+  <div class="editor-body">
+    <div class="pane pane-code">
+      <textarea id="code-input" spellcheck="false" placeholder="Пиши сюди свій HTML..."></textarea>
+    </div>
+    <div class="pane pane-preview">
+      <div class="browser-chrome">
+        <div class="dots"><span></span><span></span><span></span></div>
+        <div class="url" id="preview-url">попередній перегляд</div>
+      </div>
+      <iframe id="preview-frame" sandbox="allow-scripts allow-forms allow-popups allow-modals"></iframe>
+    </div>
+  </div>
+  <div class="console">
+    <div class="console-head">
+      <b>Консоль помилок</b>
+      <span class="count" id="console-count"></span>
+    </div>
+    <div class="console-body" id="console-body">
+      <div class="console-empty">Натисни Play, щоб перевірити код.</div>
+    </div>
+  </div>
+</div>
+
+<div id="exit-bar-holder"></div>
+<div id="modal-holder"></div>
+
+<div id="published-status">
+  <div class="spinner"></div>
+  <p id="published-status-text">Завантажуємо сайт…</p>
+</div>
+<div id="published-view"><iframe id="published-frame" sandbox="allow-scripts allow-forms allow-popups allow-modals"></iframe></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+/* ============ Fatal-error safety net ============ */
+/* Якщо будь-де в коді станеться необроблена помилка — показуємо текст
+   замість того, щоб лишати людину перед порожнім білим екраном. */
+function showFatal(msg){
+  const el = document.getElementById('fatal-error');
+  const txt = document.getElementById('fatal-error-text');
+  if(el && txt){ txt.textContent = msg; el.style.display='block'; }
+}
+window.addEventListener('error', e=>{
+  showFatal((e.message||'Невідома помилка') + (e.filename ? ' — ' + e.filename + ':' + e.lineno : ''));
+});
+window.addEventListener('unhandledrejection', e=>{
+  showFatal('Promise error: ' + (e.reason && e.reason.message ? e.reason.message : e.reason));
+});
+
+/* ============ Firebase ============ */
+const firebaseConfig = {
+  apiKey: "AIzaSyBddSsIHDOBXJpyO1otI_PtNVKbnaj3FkE",
+  authDomain: "createsite-7a634.firebaseapp.com",
+  databaseURL: "https://createsite-7a634-default-rtdb.firebaseio.com",
+  projectId: "createsite-7a634",
+  storageBucket: "createsite-7a634.firebasestorage.app",
+  messagingSenderId: "847429725787",
+  appId: "1:847429725787:web:042d334ce6e7f76305597e"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+let uid = null;
+let authReady = new Promise(resolve=>{
+  auth.onAuthStateChanged(user=>{
+    if(user){ uid = user.uid; resolve(uid); }
+    else{ auth.signInAnonymously().catch(err=>{
+      console.error(err);
+      document.getElementById('main').innerHTML =
+        '<div class="empty">Не вдалось увійти анонімно. Перевір, що Anonymous Auth увімкнено у Firebase Console.</div>';
+    }); }
+  });
+});
+
+/* ============ Helpers ============ */
+function slugify(input){
+  return String(input).trim().toLowerCase()
+    .replace(/[^a-z0-9-]+/g,'-')
+    .replace(/-+/g,'-')
+    .replace(/^-|-$/g,'');
+}
+function basePath(){
+  // works for GitHub project pages: /RepoName/...
+  const parts = location.pathname.split('/').filter(Boolean);
+  if(parts.length===0) return '/';
+  const last = parts[parts.length-1];
+  // if last segment looks like a file (has a dot, e.g. index.html), drop it
+  const segs = last.includes('.') ? parts.slice(0,-1) : (location.search ? parts : parts);
+  // default: treat first segment as repo name if we're not at domain root with no query
+  if(parts.length>=1 && !parts[0].includes('.')){
+    // if a ?p= param is present we are already at the base (index.html?p=slug)
+    return '/'+parts[0]+'/';
+  }
+  return '/';
+}
+function fullLink(slug){
+  return location.origin + basePath() + slug;
+}
+function fmtDate(ts){
+  if(!ts) return '';
+  const d = new Date(ts);
+  return d.toLocaleDateString('uk-UA',{day:'2-digit',month:'2-digit',year:'numeric'});
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+const DEFAULT_HTML = `<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>Мій сайт</title>
+<style>
+  body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#FAFAF8;color:#1E2321;}
+</style>
+</head>
+<body>
+  <h1>Привіт! Це мій сайт 👋</h1>
+</body>
+</html>`;
+
+/* ============ Routing: published view ============ */
+function initRouting(){
+  const params = new URLSearchParams(location.search);
+  const p = params.get('p');
+  if(p){
+    showPublished(p);
+    return true;
+  }
+  return false;
+}
+
+async function showPublished(slug){
+  document.getElementById('app').style.display='none';
+  const statusEl = document.getElementById('published-status');
+  const statusText = document.getElementById('published-status-text');
+  statusEl.style.display='flex';
+  try{
+    const snap = await db.ref('slugs/'+slug).once('value');
+    const data = snap.val();
+    if(!data){
+      statusText.textContent = 'Сайт «'+slug+'» не знайдено.';
+      const back = document.createElement('a');
+      back.href = basePath();
+      back.className='btn primary';
+      back.style.marginTop='8px';
+      back.textContent='На головну SiteCreate';
+      statusEl.appendChild(back);
+      return;
+    }
+    document.title = data.name || slug;
+    history.replaceState(null,'', basePath()+slug);
+    document.getElementById('published-frame').srcdoc = data.html || '';
+    statusEl.style.display='none';
+    document.getElementById('published-view').style.display='block';
+  }catch(e){
+    console.error(e);
+    statusText.textContent = 'Не вдалось завантажити сайт. Спробуй пізніше.';
+  }
+}
+
+/* ============ Tabs / home ============ */
+const tabsEl = document.getElementById('tabs');
+const mainEl = document.getElementById('main');
+const fab = document.getElementById('fab-add');
+let activeTab = 'browse';
+
+tabsEl.addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-tab]');
+  if(!btn) return;
+  setTab(btn.dataset.tab);
+});
+
+function setTab(tab){
+  activeTab = tab;
+  [...tabsEl.children].forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  fab.classList.toggle('visually-hidden', tab!=='browse');
+  if(tab==='browse') renderBrowse();
+  else if(tab==='mine') renderMine();
+  else if(tab==='create') openCreateModal();
+}
+
+fab.addEventListener('click', openAddToCommunityModal);
+
+/* ---- Чужі роботи ---- */
+async function renderBrowse(){
+  mainEl.innerHTML = `
+    <div class="section-head">
+      <div><h1>Чужі роботи</h1><p>Сайти, якими поділились інші користувачі SiteCreate.</p></div>
+    </div>
+    <div class="grid" id="browse-grid"><div class="empty">Завантаження…</div></div>`;
+  const grid = document.getElementById('browse-grid');
+  try{
+    const snap = await db.ref('community').orderByChild('addedAt').limitToLast(60).once('value');
+    const items = [];
+    snap.forEach(child=>items.unshift({id:child.key, ...child.val()}));
+    if(items.length===0){
+      grid.innerHTML = '<div class="empty">Поки що тут порожньо. Опублікуй свій сайт і додай його сюди першим — натисни +.</div>';
+      return;
+    }
+    grid.innerHTML = items.map(it=>`
+      <div class="card">
+        <h3>${escapeHtml(it.name||it.slug)}</h3>
+        <div class="meta">/${escapeHtml(it.slug)}</div>
+        <div class="row">
+          <a class="btn small primary" href="${basePath()}?p=${encodeURIComponent(it.slug)}" target="_blank" rel="noopener">Переглянути</a>
+        </div>
+      </div>`).join('');
+  }catch(e){
+    console.error(e);
+    grid.innerHTML = '<div class="empty">Не вдалось завантажити список. Перевір з’єднання або правила доступу Firebase.</div>';
+  }
+}
+
+async function openAddToCommunityModal(){
+  await authReady;
+  const snap = await db.ref('users/'+uid+'/projects').once('value');
+  const projects = [];
+  snap.forEach(child=>{const v=child.val(); if(v.slug) projects.push({id:child.key, ...v});});
+  if(projects.length===0){
+    showModal(`
+      <h2>Немає опублікованих сайтів</h2>
+      <p class="hint">Спочатку створи сайт і опублікуй його (кнопка «Готово» в редакторі), а потім додай його до чужих робіт.</p>
+      <div class="actions"><button class="btn primary" data-close>Зрозуміло</button></div>
+    `);
+    return;
+  }
+  showModal(`
+    <h2>Додати свій сайт</h2>
+    <p class="hint">Обери опублікований проєкт, який побачать усі у розділі «Чужі роботи».</p>
+    <div class="field">
+      <label for="pick-project">Проєкт</label>
+      <select id="pick-project">
+        ${projects.map(p=>`<option value="${escapeHtml(p.slug)}" data-name="${escapeHtml(p.name)}">${escapeHtml(p.name)} — /${escapeHtml(p.slug)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" data-close>Скасувати</button>
+      <button class="btn primary" id="confirm-add">Готово</button>
+    </div>
+  `);
+  document.getElementById('confirm-add').addEventListener('click', async ()=>{
+    const sel = document.getElementById('pick-project');
+    const slug = sel.value;
+    const name = sel.selectedOptions[0].dataset.name;
+    await db.ref('community').push({slug, name, addedByUid: uid, addedAt: Date.now()});
+    closeModal();
+    setTab('browse');
+  });
+}
+
+/* ---- Мої роботи ---- */
+async function renderMine(){
+  mainEl.innerHTML = `
+    <div class="section-head">
+      <div><h1>Мої роботи</h1><p>Проєкти, які ти зробив у SiteCreate на цьому пристрої.</p></div>
+      <button class="btn primary" id="mine-create">+ Створити сайт</button>
+    </div>
+    <div class="grid" id="mine-grid"><div class="empty">Завантаження…</div></div>`;
+  document.getElementById('mine-create').addEventListener('click', openCreateModal);
+  await authReady;
+  const grid = document.getElementById('mine-grid');
+  try{
+    const snap = await db.ref('users/'+uid+'/projects').orderByChild('updatedAt').once('value');
+    const items = [];
+    snap.forEach(child=>items.unshift({id:child.key, ...child.val()}));
+    if(items.length===0){
+      grid.innerHTML = '<div class="empty">Тут ще немає проєктів. Натисни «Створити сайт», щоб зробити перший.</div>';
+      return;
+    }
+    grid.innerHTML = items.map(it=>`
+      <div class="card">
+        <span class="badge ${it.slug?'live':'draft'}">${it.slug?'● Опубліковано':'○ Чернетка'}</span>
+        <h3>${escapeHtml(it.name)}</h3>
+        <div class="meta">оновлено ${fmtDate(it.updatedAt)}</div>
+        <div class="row">
+          <button class="btn small" data-edit="${it.id}">Редагувати</button>
+          ${it.slug?`<a class="btn small" href="${basePath()}?p=${encodeURIComponent(it.slug)}" target="_blank" rel="noopener">Переглянути</a>`:''}
+          <button class="btn small danger" data-delete="${it.id}">Видалити</button>
+        </div>
+      </div>`).join('');
+    grid.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openEditor(b.dataset.edit)));
+    grid.querySelectorAll('[data-delete]').forEach(b=>b.addEventListener('click', ()=>confirmDelete(b.dataset.delete)));
+  }catch(e){
+    console.error(e);
+    grid.innerHTML = '<div class="empty">Не вдалось завантажити проєкти. Перевір з’єднання або правила доступу Firebase.</div>';
+  }
+}
+
+function confirmDelete(id){
+  showModal(`
+    <h2>Видалити проєкт?</h2>
+    <p class="hint">Це прибере проєкт із «Моїх робіт». Якщо він опублікований, посилання перестане працювати.</p>
+    <div class="actions">
+      <button class="btn ghost" data-close>Скасувати</button>
+      <button class="btn danger" id="confirm-delete">Видалити</button>
+    </div>
+  `);
+  document.getElementById('confirm-delete').addEventListener('click', async ()=>{
+    const snap = await db.ref('users/'+uid+'/projects/'+id).once('value');
+    const data = snap.val();
+    await db.ref('users/'+uid+'/projects/'+id).remove();
+    if(data && data.slug) await db.ref('slugs/'+data.slug).remove();
+    closeModal();
+    renderMine();
+  });
+}
+
+/* ---- Створити сайт (modal) ---- */
+async function openCreateModal(){
+  await authReady;
+  showModal(`
+    <h2>Створити сайт</h2>
+    <p class="hint">Дай проєкту назву — її можна змінити пізніше.</p>
+    <div class="field">
+      <label for="new-name">Назва проєкту</label>
+      <input id="new-name" type="text" placeholder="Наприклад, Портфоліо" maxlength="60">
+    </div>
+    <div class="modal-err err" style="display:none;"></div>
+    <div class="actions">
+      <button class="btn ghost" data-close>Скасувати</button>
+      <button class="btn primary" id="confirm-create">Створити</button>
+    </div>
+  `);
+  const input = document.getElementById('new-name');
+  input.focus();
+  const errEl = document.querySelector('.modal-err');
+  document.getElementById('confirm-create').addEventListener('click', async ()=>{
+    const name = input.value.trim();
+    if(!name){ errEl.textContent='Введи назву проєкту.'; errEl.style.display='block'; return; }
+    const ref = db.ref('users/'+uid+'/projects').push();
+    const project = {name, html: DEFAULT_HTML, updatedAt: Date.now(), slug: null};
+    await ref.set(project);
+    closeModal();
+    openEditor(ref.key);
+  });
+}
+
+/* ============ Editor ============ */
+const editorEl = document.getElementById('editor');
+const codeInput = document.getElementById('code-input');
+const previewFrame = document.getElementById('preview-frame');
+const previewUrl = document.getElementById('preview-url');
+const consoleBody = document.getElementById('console-body');
+const consoleCount = document.getElementById('console-count');
+let currentProjectId = null;
+let currentProjectSlug = null;
+let errors = [];
+
+function openEditor(id){
+  db.ref('users/'+uid+'/projects/'+id).once('value').then(snap=>{
+    const data = snap.val();
+    if(!data) return;
+    currentProjectId = id;
+    currentProjectSlug = data.slug || null;
+    document.getElementById('editor-project-name').textContent = data.name;
+    codeInput.value = data.html || DEFAULT_HTML;
+    errors = [];
+    renderConsole();
+    previewUrl.textContent = currentProjectSlug ? fullLink(currentProjectSlug) : 'попередній перегляд';
+    previewFrame.srcdoc = wrapForPreview(codeInput.value);
+    document.getElementById('main').style.display='none';
+    document.querySelector('.topbar').style.display='none';
+    editorEl.style.display='flex';
+  });
+}
+
+function closeEditorUI(){
+  editorEl.style.display='none';
+  document.querySelector('.topbar').style.display='flex';
+  document.getElementById('main').style.display='block';
+  setTab(activeTab);
+}
+
+function wrapForPreview(code){
+  const errScript = `<script>
+    window.onerror = function(msg, src, line, col){
+      parent.postMessage({type:'previewError', msg:String(msg), line:line, col:col}, '*');
+      return false;
+    };
+    window.addEventListener('unhandledrejection', function(e){
+      parent.postMessage({type:'previewError', msg:'Unhandled promise: '+e.reason, line:'', col:''}, '*');
+    });
+  <\/script>`;
+  if(/<head[^>]*>/i.test(code)) return code.replace(/<head[^>]*>/i, m=>m+errScript);
+  if(/<html[^>]*>/i.test(code)) return code.replace(/<html[^>]*>/i, m=>m+errScript);
+  return errScript+code;
+}
+
+window.addEventListener('message', e=>{
+  if(e.data && e.data.type==='previewError'){
+    errors.push(e.data);
+    renderConsole();
+  }
+});
+
+function renderConsole(){
+  consoleCount.textContent = errors.length ? errors.length+' помилок' : '';
+  if(errors.length===0){
+    consoleBody.innerHTML = '<div class="console-empty">Натисни Play, щоб перевірити код.</div>';
+    return;
+  }
+  consoleBody.innerHTML = errors.map(er=>{
+    const pos = er.line ? ` (рядок ${er.line}${er.col?':'+er.col:''})` : '';
+    return `<div class="console-line">⚠ ${escapeHtml(er.msg)}${pos}</div>`;
+  }).join('');
+}
+
+document.getElementById('btn-play').addEventListener('click', ()=>{
+  errors = [];
+  renderConsole();
+  previewFrame.srcdoc = wrapForPreview(codeInput.value);
+});
+
+document.getElementById('btn-exit').addEventListener('click', showExitBar);
+
+function showExitBar(){
+  const holder = document.getElementById('exit-bar-holder');
+  holder.innerHTML = `
+    <div class="exit-bar">
+      <span>Зберегти зміни перед виходом?</span>
+      <button class="btn" id="exit-discard">Вийти без збереження</button>
+      <button class="btn primary" id="exit-save">Зберегти і вийти</button>
+    </div>`;
+  document.getElementById('exit-discard').addEventListener('click', ()=>{ holder.innerHTML=''; closeEditorUI(); });
+  document.getElementById('exit-save').addEventListener('click', async ()=>{
+    await db.ref('users/'+uid+'/projects/'+currentProjectId).update({html: codeInput.value, updatedAt: Date.now()});
+    holder.innerHTML='';
+    closeEditorUI();
+  });
+}
+
+document.getElementById('btn-publish').addEventListener('click', openPublishModal);
+
+function openPublishModal(){
+  const suggestion = currentProjectSlug || slugify(document.getElementById('editor-project-name').textContent) || 'my-site';
+  showModal(`
+    <h2>Опублікувати сайт</h2>
+    <p class="hint">Вигадай коротку адресу (лише латинські літери, цифри й дефіс).</p>
+    <div class="field">
+      <label for="domain-input">Адреса</label>
+      <input id="domain-input" type="text" value="${escapeHtml(suggestion)}">
+    </div>
+    <div class="modal-err err" style="display:none;"></div>
+    <div class="actions">
+      <button class="btn ghost" data-close>Скасувати</button>
+      <button class="btn primary" id="confirm-publish">Опублікувати</button>
+    </div>
+  `);
+  document.getElementById('confirm-publish').addEventListener('click', doPublish);
+}
+
+async function doPublish(){
+  const input = document.getElementById('domain-input');
+  const errEl = document.querySelector('.modal-err');
+  const slug = slugify(input.value);
+  if(!slug){ errEl.textContent='Введи коректну адресу.'; errEl.style.display='block'; return; }
+  const snap = await db.ref('slugs/'+slug).once('value');
+  const existing = snap.val();
+  if(existing && existing.pid !== currentProjectId){
+    errEl.textContent = 'Ця адреса вже зайнята, обери іншу.';
+    errEl.style.display='block';
+    return;
+  }
+  const name = document.getElementById('editor-project-name').textContent;
+  const html = codeInput.value;
+  const now = Date.now();
+  // free old slug if project's slug changed
+  if(currentProjectSlug && currentProjectSlug !== slug){
+    await db.ref('slugs/'+currentProjectSlug).remove();
+  }
+  await db.ref('slugs/'+slug).set({pid: currentProjectId, uid, name, html, publishedAt: now});
+  await db.ref('users/'+uid+'/projects/'+currentProjectId).update({html, slug, updatedAt: now});
+  currentProjectSlug = slug;
+  previewUrl.textContent = fullLink(slug);
+  const link = fullLink(slug);
+  showModal(`
+    <h2>Готово! 🎉</h2>
+    <p class="hint">Твій сайт доступний за посиланням:</p>
+    <div class="success-link">${escapeHtml(link)}</div>
+    <div class="actions">
+      <button class="btn" id="copy-link">Скопіювати</button>
+      <button class="btn primary" data-close>Закрити</button>
+    </div>
+  `);
+  document.getElementById('copy-link').addEventListener('click', ()=>{
+    navigator.clipboard.writeText(link);
+    document.getElementById('copy-link').textContent='Скопійовано ✓';
+  });
+}
+
+/* ============ Modal helpers ============ */
+function showModal(innerHtml){
+  const holder = document.getElementById('modal-holder');
+  holder.innerHTML = `<div class="overlay"><div class="modal">${innerHtml}</div></div>`;
+  holder.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click', closeModal));
+  holder.querySelector('.overlay').addEventListener('click', e=>{ if(e.target.classList.contains('overlay')) closeModal(); });
+}
+function closeModal(){ document.getElementById('modal-holder').innerHTML=''; }
+
+/* ============ Boot ============ */
+if(!initRouting()){
+  renderBrowse();
+}
+</script>
 </body>
 </html>
