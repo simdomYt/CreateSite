@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>Перенаправлення…</title>
+<script>
+  // GitHub Pages не вміє віддавати "красиві" адреси типу /Repo/moya-nazva,
+  // бо такого файлу фізично немає. Цей файл ловить 404 і перенаправляє
+  // на index.html з параметром ?p=..., а сам index.html потім повертає
+  // адресний рядок назад у красивий вигляд через history.replaceState.
+  var parts = location.pathname.split('/').filter(Boolean);
+  var repo = parts.shift() || '';
+  var slug = parts.join('/');
+  var target = '/' + repo + '/' + (slug ? ('?p=' + encodeURIComponent(slug)) : '');
+  location.replace(target + location.hash);
+</script>
+</head>
+<body>
+  Перенаправлення…
+</body>
+</html>
